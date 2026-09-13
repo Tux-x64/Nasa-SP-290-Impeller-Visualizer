@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prescribed Loading — Impeller Blade Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:        #14171A;
+  --panel:     #1B1F23;
+  --panel-2:   #20252A;
+  --line:      #2C3238;
+  --text:      #E9E6DF;
+  --text-dim:  #9AA2A9;
+  --text-faint:#616A71;
+  --brass:     #C6913F;
+  --brass-dim: #8A6530;
+  --cyan:      #62AEBE;
+  --cyan-dim:  #3E6B75;
+  --red-warn:  #C1633F;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --head: 'Barlow Condensed', sans-serif;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--sans); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--brass);}
+h1,h2,h3{font-family:var(--head); font-weight:600; margin:0 0 .4em; letter-spacing:.01em;}
+.eyebrow{
+  font-family:var(--mono); font-size:11.5px; color:var(--brass);
+  letter-spacing:.08em; margin-bottom:.6em; display:flex; align-items:center; gap:.5em;
+}
+.eyebrow .num{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; border:1px solid var(--brass-dim); color:var(--brass);
+  font-size:10.5px;
+}
+p{color:var(--text-dim); max-width:62ch;}
+code, .var{font-family:var(--mono); color:var(--cyan); font-size:.95em;}
+
+/* ---------- layout shell ---------- */
+.shell{display:flex; max-width:1400px; margin:0 auto;}
+.railnav{
+  width:210px; flex:none; position:sticky; top:0; align-self:flex-start;
+  height:100vh; overflow-y:auto; padding:28px 0 28px 28px; border-right:1px solid var(--line);
+}
+.railnav .brand{font-family:var(--head); font-size:19px; color:var(--text); margin-bottom:2px;}
+.railnav .brand-sub{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-bottom:26px; letter-spacing:.06em;}
+.railnav ol{list-style:none; margin:0; padding:0; border-left:1px solid var(--line);}
+.railnav li{margin:0;}
+.railnav a{
+  display:block; padding:8px 0 8px 16px; margin-left:-1px; border-left:1px solid transparent;
+  font-size:13px; color:var(--text-dim); text-decoration:none; transition:color .15s, border-color .15s;
+}
+.railnav a:hover{color:var(--text);}
+.railnav a.active{color:var(--brass); border-left-color:var(--brass);}
+.railnav .tag{font-family:var(--mono); font-size:10px; color:var(--text-faint); display:block;}
+.railnav .src{margin-top:24px; padding-top:16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--text-faint); line-height:1.5;}
+.railnav .src a{color:var(--text-faint); text-decoration:underline; text-underline-offset:2px;}
+
+.main{flex:1; min-width:0; padding:0 40px 100px;}
+.topbar-mobile{display:none;}
+
+section{padding-top:70px; scroll-margin-top:20px;}
+section:first-of-type{padding-top:32px;}
+
+.intro{max-width:640px; margin-bottom:10px;}
+.intro h1{font-size:36px; line-height:1.08;}
+.intro p{font-size:15.5px;}
+
+/* ---------- formula box ---------- */
+.formula-box{
+  background:var(--panel); border:1px solid var(--line); padding:16px 18px;
+  margin:16px 0; position:relative;
+}
+.formula-box::before, .formula-box::after{
+  content:""; position:absolute; width:7px; height:7px; border:1px solid var(--brass-dim);
+  top:-1px; left:-1px; border-right:none; border-bottom:none;
+}
+.formula-box::after{ left:auto; right:-1px; border-right:1px solid var(--brass-dim); border-left:none; }
+.formula-label{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:.06em; margin-bottom:8px;}
+.formula{font-family:var(--mono); font-size:16.5px; color:var(--brass); overflow-x:auto; white-space:nowrap;}
+.formula .frac{display:inline-block; vertical-align:middle; text-align:center; margin:0 3px;}
+.formula .frac > span{display:block; padding:0 2px;}
+.formula .frac .num-r{border-bottom:1px solid var(--brass);}
+.formula-note{font-size:12.5px; color:var(--text-faint); margin-top:8px;}
+
+/* ---------- grid layouts for sections ---------- */
+.two-col{display:grid; grid-template-columns:minmax(260px,1fr) minmax(280px,420px); gap:28px; align-items:start; margin-top:14px;}
+.viz-panel{background:var(--panel); border:1px solid var(--line); padding:14px;}
+.viz-panel .viz-title{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:.05em; margin-bottom:6px; display:flex; justify-content:space-between;}
+.viz-panel svg{width:100%; height:auto; display:block; overflow:visible;}
+
+/* ---------- controls ---------- */
+.control-row{margin:12px 0;}
+.control-row label{
+  display:flex; justify-content:space-between; font-family:var(--mono); font-size:11.5px;
+  color:var(--text-dim); margin-bottom:5px;
+}
+.control-row label .val{color:var(--brass);}
+input[type=range]{
+  width:100%; -webkit-appearance:none; appearance:none; height:2px; background:var(--line); outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background:var(--brass); cursor:pointer; border:2px solid var(--bg); box-shadow:0 0 0 1px var(--brass);
+}
+input[type=range]::-moz-range-thumb{
+  width:13px; height:13px; border-radius:50%; background:var(--brass); cursor:pointer; border:2px solid var(--bg); box-shadow:0 0 0 1px var(--brass);
+}
+.control-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 20px;}
+.control-group-title{font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:.08em; margin:18px 0 4px; text-transform:uppercase;}
+.control-group-title:first-child{margin-top:0;}
+
+select, .btnrow button, .toggle-pair{
+  font-family:var(--mono); font-size:12px; background:var(--panel-2); color:var(--text);
+  border:1px solid var(--line); padding:7px 10px;
+}
+select{width:100%; cursor:pointer;}
+.toggle-pair{display:flex; padding:0; overflow:hidden;}
+.toggle-pair button{
+  flex:1; background:none; border:none; color:var(--text-dim); font-family:var(--mono); font-size:11.5px;
+  padding:8px 6px; cursor:pointer; border-right:1px solid var(--line);
+}
+.toggle-pair button:last-child{border-right:none;}
+.toggle-pair button.active{background:var(--brass); color:#1a1305;}
+.checkline{display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); margin:10px 0;}
+.checkline input{accent-color:var(--brass);}
+
+/* ---------- hero / 3D viewer ---------- */
+.hero-wrap{background:var(--panel); border:1px solid var(--line); margin-top:8px;}
+.viewer3d{position:relative; width:100%; height:min(62vh,560px); min-height:340px; background:radial-gradient(circle at 50% 40%, #1c2126 0%, #101316 100%); cursor:grab;}
+.viewer3d.dragging{cursor:grabbing;}
+.viewer3d canvas{display:block; width:100%; height:100%;}
+.viewer3d .hint{position:absolute; left:14px; bottom:12px; font-family:var(--mono); font-size:10.5px; color:var(--text-faint); pointer-events:none;}
+.viewer3d .readout{
+  position:absolute; top:14px; left:14px; font-family:var(--mono); font-size:11px; color:var(--text-dim);
+  background:rgba(20,23,26,.55); padding:8px 10px; border:1px solid var(--line); line-height:1.7; pointer-events:none;
+}
+.viewer3d .readout b{color:var(--brass); font-weight:500;}
+.legend-dot{display:inline-block; width:8px; height:8px; margin-right:5px; position:relative; top:0;}
+.hero-controls{padding:22px; display:grid; grid-template-columns:1fr 1fr 1fr 260px; gap:0 30px; border-top:1px solid var(--line);}
+.hero-controls .stl-col{border-left:1px solid var(--line); padding-left:28px;}
+.stl-col p.d{font-size:12px; margin:8px 0 14px;}
+.btn-primary{
+  width:100%; background:var(--brass); color:#1a1305; border:none; padding:11px 14px;
+  font-family:var(--mono); font-weight:600; font-size:12.5px; letter-spacing:.03em; cursor:pointer; margin-bottom:8px;
+}
+.btn-primary:hover{background:#d9a253;}
+.btn-secondary{
+  width:100%; background:none; color:var(--cyan); border:1px solid var(--cyan-dim); padding:9px 14px;
+  font-family:var(--mono); font-size:11.5px; cursor:pointer;
+}
+.btn-secondary:hover{border-color:var(--cyan);}
+.stl-status{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-top:8px; min-height:1.4em;}
+
+@media (max-width:1000px){
+  .railnav{display:none;}
+  .main{padding:0 18px 80px;}
+  .topbar-mobile{
+    display:block; position:sticky; top:0; z-index:20; background:var(--bg);
+    border-bottom:1px solid var(--line); padding:12px 18px; overflow-x:auto; white-space:nowrap;
+  }
+  .topbar-mobile a{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); text-decoration:none; margin-right:18px;}
+  .topbar-mobile a.active{color:var(--brass);}
+  .two-col{grid-template-columns:1fr;}
+  .hero-controls{grid-template-columns:1fr 1fr; row-gap:18px;}
+  .hero-controls .stl-col{border-left:none; padding-left:0; grid-column:1/-1; border-top:1px solid var(--line); padding-top:18px;}
+  .control-grid{grid-template-columns:1fr;}
+}
+
+/* ---------- diagram / schematic section ---------- */
+.ladder-toggle{display:flex; gap:0; margin-bottom:14px; max-width:320px;}
+.callout{
+  border-left:2px solid var(--brass-dim); padding:2px 0 2px 14px; margin:18px 0; color:var(--text-dim); font-size:13.5px;
+}
+.callout b{color:var(--text);}
+
+footer{border-top:1px solid var(--line); margin-top:60px; padding-top:26px;}
+footer .limits{font-size:12.5px; color:var(--text-faint);}
+footer .limits li{margin-bottom:6px;}
+footer .limits{padding-left:18px;}
+
+.readout-strip{display:flex; gap:22px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-top:4px;}
+.readout-strip b{color:var(--brass); font-weight:500;}
+
+.station-scrub{margin:14px 0 6px;}
+.legend-row{display:flex; gap:16px; font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-top:6px;}
+</style>
+</head>
+<body>
+
+<div class="topbar-mobile" id="mobileNav"></div>
+
+<div class="shell">
+  <nav class="railnav">
+    <div class="brand">Prescribed Loading</div>
+    <div class="brand-sub">NASA SP‑290 · Jansen &amp; Kirschner, 1974</div>
+    <ol id="railList"></ol>
+    <div class="src">
+      Source paper:<br>
+      <a href="https://ntrs.nasa.gov/api/citations/19750003125/downloads/19750003125.pdf" target="_blank" rel="noopener">ntrs.nasa.gov/…/19750003125.pdf</a>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ============ INTRO + HERO 3D ============ -->
+    <section id="s-hero">
+      <div class="intro">
+        <div class="eyebrow"><span class="num">0</span> IMPELLER BLADE DESIGN METHOD</div>
+        <h1>What each formula does to the blade</h1>
+        <p>In 1974, Willem Jansen and Andreas Kirschner at Northern Research &amp; Engineering published a way to design centrifugal‑compressor impeller blades not by drawing a shape, but by <em>prescribing the velocity the flow should have</em> along the blade — and calculating the geometry that produces it. Below, each governing equation is wired directly to the 3D blade on the right: move a slider, watch the metal change. Defaults match the paper's own worked example — a 27,900 rpm, 16‑blade, 25° backswept impeller.</p>
+      </div>
+
+      <div class="hero-wrap">
+        <div class="viewer3d" id="viewer">
+          <div class="readout" id="heroReadout"></div>
+          <div class="hint">drag to orbit · scroll to zoom</div>
+        </div>
+        <div class="hero-controls">
+          <div class="ctrl-block">
+            <div class="control-group-title">Passage geometry</div>
+            <div class="control-row"><label>Hub inlet radius <span class="val" id="v_rh1"></span></label><input type="range" id="rh1" min="0.5" max="3.0" step="0.01"></div>
+            <div class="control-row"><label>Shroud inlet radius <span class="val" id="v_rs1"></span></label><input type="range" id="rs1" min="1.5" max="5.0" step="0.01"></div>
+            <div class="control-row"><label>Discharge radius <span class="val" id="v_r2"></span></label><input type="range" id="r2" min="3.0" max="8.0" step="0.01"></div>
+          </div>
+          <div class="ctrl-block">
+            <div class="control-group-title">Passage geometry</div>
+            <div class="control-row"><label>Axial length <span class="val" id="v_L"></span></label><input type="range" id="L" min="1.0" max="4.5" step="0.01"></div>
+            <div class="control-row"><label>Discharge width <span class="val" id="v_b2"></span></label><input type="range" id="b2" min="0.2" max="1.5" step="0.01"></div>
+            <div class="control-row"><label>Blade count Z <span class="val" id="v_Z"></span></label><input type="range" id="Z" min="6" max="24" step="1"></div>
+          </div>
+          <div class="ctrl-block">
+            <div class="control-group-title">Operating point</div>
+            <div class="control-row"><label>Rotational speed <span class="val" id="v_rpm"></span></label><input type="range" id="rpm" min="10000" max="40000" step="100"></div>
+            <div class="control-row"><label>Mass flow <span class="val" id="v_mdot"></span></label><input type="range" id="mdot" min="2" max="8" step="0.05"></div>
+            <div class="control-row"><label>Discharge temp. <span class="val" id="v_T02"></span></label><input type="range" id="T02" min="600" max="900" step="2"></div>
+            <div class="control-row"><label>Hub / shroud thickness <span class="val" id="v_th"></span></label><input type="range" id="tHub" min="0.03" max="0.25" step="0.002"></div>
+          </div>
+          <div class="stl-col">
+            <div class="control-group-title">Export</div>
+            <p class="d">Same mesh you see spinning above — pressure surface, suction surface, hub, all Z blades, closed and watertight.</p>
+            <div class="checkline"><input type="checkbox" id="includeHub" checked><label for="includeHub">include hub casting</label></div>
+            <button class="btn-primary" id="btnStl">↓ Download impeller.stl</button>
+            <div class="stl-status" id="stlStatus"></div>
+          </div>
+        </div>
+      </div>
+      <div class="readout-strip" id="topReadoutStrip"></div>
+    </section>
+
+    <!-- ============ 1. CONTINUITY ============ -->
+    <section id="s-continuity">
+      <div class="eyebrow"><span class="num">1</span> INITIAL VELOCITY ESTIMATE</div>
+      <h2>The passage shape sets the speed</h2>
+      <p>Before any blade exists, the paper estimates how fast the flow must travel through the bare hub‑to‑shroud passage. Mass has to get through a shrinking or growing annulus, so velocity is fixed by geometry through continuity:</p>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 1 — CONTINUITY AT A NORMAL STATION</div>
+        <div class="formula">ṁ&nbsp;=&nbsp;ρ&nbsp;·&nbsp;C<sub>m</sub>&nbsp;·&nbsp;2π&nbsp;r&nbsp;·&nbsp;b</div>
+        <div class="formula-note">ṁ mass flow · ρ density · C<sub>m</sub> meridional velocity · r radius · b passage width (hub‑to‑shroud normal distance)</div>
+      </div>
+      <p>Drag the hub/shroud radii or mass flow above — narrower passages or higher flow force <span class="var">C_m</span> up; that's why velocity spikes near the discharge, where the annulus area shrinks fastest.</p>
+      <div class="two-col">
+        <div class="viz-panel">
+          <div class="viz-title"><span>MERIDIONAL PASSAGE (r – z)</span><span id="tagMeridional"></span></div>
+          <svg id="svgMeridional" viewBox="0 0 480 300"></svg>
+          <div class="legend-row">
+            <span><span class="legend-dot" style="background:var(--cyan)"></span>shroud</span>
+            <span><span class="legend-dot" style="background:var(--brass)"></span>hub</span>
+            <span><span class="legend-dot" style="background:var(--text-faint)"></span>normal stations</span>
+          </div>
+        </div>
+        <div class="viz-panel">
+          <div class="viz-title"><span>MERIDIONAL VELOCITY C<sub>m</sub></span><span>ft/s</span></div>
+          <svg id="svgCm" viewBox="0 0 480 300"></svg>
+          <div class="legend-row">
+            <span><span class="legend-dot" style="background:var(--cyan)"></span>shroud</span>
+            <span><span class="legend-dot" style="background:#8b95c9"></span>mean</span>
+            <span><span class="legend-dot" style="background:var(--brass)"></span>hub</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 2. STREAMTUBE SPLIT ============ -->
+    <section id="s-split">
+      <div class="eyebrow"><span class="num">2</span> HUB / SHROUD SPLIT</div>
+      <h2>One average speed, three streamlines</h2>
+      <p>Eq. 1 only gives the passage-average velocity. To load the hub, shroud, and an intermediate streamline individually, the method needs each of their speeds separately. Two assumptions get there: zero circulation across a normal, and a linear variation of flow between hub and shroud.</p>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 2 — ZERO CIRCULATION ACROSS A NORMAL</div>
+        <div class="formula">C<sub>m,h</sub> · dm<sub>h</sub> &nbsp;=&nbsp; C<sub>m,s</sub> · dm<sub>s</sub></div>
+      </div>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 3 — LINEAR VARIATION BETWEEN HUB AND SHROUD</div>
+        <div class="formula">C<sub>m,mean</sub>·r<sub>mean</sub> &nbsp;=&nbsp; ½ ( C<sub>m,h</sub>·r<sub>h</sub> + C<sub>m,s</sub>·r<sub>s</sub> )</div>
+        <div class="formula-note">Solved together (the paper's eqs. 4–5) these split the one mean value from §1 into a hub curve and a shroud curve.</div>
+      </div>
+      <p>Notice the shroud streamline always runs faster than the hub — it's doing more of the turning, covers more distance per station, and (as §5 will show) ends up carrying almost all of the blade loading.</p>
+      <div class="viz-panel" style="max-width:640px;">
+        <div class="viz-title"><span>THREE STREAMLINES, ONE PASSAGE</span><span>C<sub>m</sub> vs meridional distance</span></div>
+        <svg id="svgSplit" viewBox="0 0 700 260"></svg>
+      </div>
+    </section>
+
+    <!-- ============ 3. LOADING ============ -->
+    <section id="s-loading">
+      <div class="eyebrow"><span class="num">3</span> PRESCRIBED LOADING</div>
+      <h2>You choose how hard the blade works, station by station</h2>
+      <p>This is the method's namesake move. Instead of guessing a shape, the designer prescribes <span class="var">W<sub>p</sub> − W<sub>s</sub></span> — the velocity difference between the blade's pressure and suction faces — at every point along the camber line. Integrating that loading builds up the angular momentum the flow has picked up so far:</p>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 6 — LOADING → ANGULAR MOMENTUM</div>
+        <div class="formula">r C<sub>θ</sub>(s) &nbsp;=&nbsp; <span class="frac"><span class="num-r">Z</span><span>2π</span></span> <span style="font-size:1.3em">∫</span><sub style="font-size:.6em">0</sub><sup style="font-size:.6em">s</sup> (W<sub>p</sub> − W<sub>s</sub>) ds′</div>
+        <div class="formula-note">Z number of blades · s camber‑line distance. The last 10% of chord is forced toward zero loading to satisfy the Kutta condition at the trailing edge.</div>
+      </div>
+      <div class="two-col">
+        <div>
+          <p>Three loading shapes from the paper's Figure 1, selectable below:</p>
+          <div class="ladder-toggle toggle-pair" id="loadingToggle">
+            <button data-v="linear">Linear</button>
+            <button data-v="double">Double linear</button>
+            <button data-v="inverse">LE‑weighted</button>
+          </div>
+          <p style="font-size:13px;">Linear loading front‑loads the blade and minimizes secondary flow. Double‑linear peaks mid‑chord and minimizes the streamwise velocity <em>reduction</em> that triggers separation — it's what the paper's own sample impeller uses on the shroud.</p>
+        </div>
+        <div class="viz-panel">
+          <div class="viz-title"><span>LOADING W<sub>p</sub> − W<sub>s</sub></span><span id="loadingTag"></span></div>
+          <svg id="svgLoading" viewBox="0 0 420 180"></svg>
+          <div class="viz-title" style="margin-top:14px;"><span>RESULTING r·C<sub>θ</sub>(s)</span><span>build‑up along blade</span></div>
+          <svg id="svgRCtheta" viewBox="0 0 420 160"></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4. VELOCITY TRIANGLE ============ -->
+    <section id="s-triangle">
+      <div class="eyebrow"><span class="num">4</span> FLOW ANGLE</div>
+      <h2>Angular momentum becomes a direction</h2>
+      <p>At each station the meridional velocity (§1) and the swirl velocity implied by the loading (§3) combine, in the rotating frame, into the relative flow angle β — the angle the blade metal has to point.</p>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 7 — RELATIVE FLOW ANGLE</div>
+        <div class="formula">β &nbsp;=&nbsp; tan<sup>−1</sup> <span class="frac"><span class="num-r">C<sub>θ</sub> − rω</span><span>C<sub>m</sub></span></span></div>
+        <div class="formula-note">ω angular velocity (rad/s) · rω is the blade's own tangential speed U at that radius.</div>
+      </div>
+      <div class="two-col">
+        <div class="viz-panel">
+          <div class="viz-title"><span>VELOCITY TRIANGLE</span><span id="triStationTag"></span></div>
+          <svg id="svgTriangle" viewBox="0 0 420 320"></svg>
+          <div class="legend-row">
+            <span><span class="legend-dot" style="background:var(--brass)"></span>U (blade speed)</span>
+            <span><span class="legend-dot" style="background:#8b95c9"></span>C (absolute)</span>
+            <span><span class="legend-dot" style="background:var(--cyan)"></span>W (relative), ∠β</span>
+          </div>
+        </div>
+        <div>
+          <div class="station-scrub">
+            <div class="control-row"><label>Station, leading → trailing edge <span class="val" id="v_station"></span></label><input type="range" id="stationScrub" min="0" max="23" step="1"></div>
+            <div class="toggle-pair" id="triStreamToggle" style="max-width:260px;">
+              <button data-v="shroud" class="active">Shroud</button>
+              <button data-v="hub">Hub</button>
+            </div>
+          </div>
+          <p style="font-size:13px;">Scrub through the blade: near the leading edge, swirl is still zero, so β is steep — almost tangential, set entirely by blade speed. By the trailing edge the prescribed loading has built up enough swirl that β eases toward the discharge blade angle.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 5. THETA INTEGRATION ============ -->
+    <section id="s-theta">
+      <div class="eyebrow"><span class="num">5</span> INTEGRATING TO A SHAPE</div>
+      <h2>Stack up the angles, get a spiral</h2>
+      <p>β is a direction at one station. To get the blade's actual angular position, the method walks station to station and accumulates it:</p>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 8 — BLADE ANGLE BY INTEGRATION OF β</div>
+        <div class="formula">θ(s) &nbsp;=&nbsp; <span style="font-size:1.3em">∫</span><sub style="font-size:.6em">0</sub><sup style="font-size:.6em">s</sup> <span class="frac"><span class="num-r">tan β</span><span>r</span></span> ds′</div>
+        <div class="formula-note">θ is initialized to zero at the leading edge here (the paper anchors it at the trailing edge on the shroud; the choice is just a rotational reference and doesn't change the shape).</div>
+      </div>
+      <p>This is the step that actually draws the blade: a running sum of small turns. Looking straight down the shaft, the camber line traces the spiral below — the same curve visible edge‑on in the 3D model above.</p>
+      <div class="viz-panel" style="max-width:520px;">
+        <div class="viz-title"><span>BLADE CAMBER LINE, LOOKING DOWN THE SHAFT</span><span id="thetaWrapTag"></span></div>
+        <svg id="svgPolar" viewBox="0 0 420 420"></svg>
+      </div>
+    </section>
+
+    <!-- ============ 6. RULED SURFACE ============ -->
+    <section id="s-ruled">
+      <div class="eyebrow"><span class="num">6</span> STRAIGHT‑LINE ELEMENTS</div>
+      <h2>Three curves, one straight line — or not</h2>
+      <p>Independently loading the hub, mean, and shroud streamlines produces three different space curves. A castable, millable blade needs its surface built from <em>straight lines</em> connecting them (eq. 9a–9b) — which only works cleanly if all three curves reach the trailing edge at close to the same angle. If they don't, the blade twists — "excessive lean," in the paper's words.</p>
+      <div class="formula-box">
+        <div class="formula-label">EQ. 9A / 9B — RULED-SURFACE ELEMENT CONSTRUCTION</div>
+        <div class="formula">Δs<sub>2</sub> / Δs<sub>1</sub> &nbsp;=&nbsp; <span class="frac"><span class="num-r">t̂ · (t̂₁ × l̂)</span><span>t̂₁ · (t̂₂ × l̂)</span></span></div>
+        <div class="formula-note">Each new line element's intersections with the other two curves are found from the local tangents t̂ and the previous element's direction l̂ — building the surface one straight rung at a time.</div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="toggle-pair" id="leanToggle" style="max-width:320px;">
+            <button data-v="radial">Radial elements (zero lean)</button>
+            <button data-v="arbitrary">Independent loading (shows lean)</button>
+          </div>
+          <p style="font-size:13px; margin-top:14px;">The paper's own impeller ran into this: an early design leaned badly enough at the inducer to worry about root bending stress. Its fix — the one used here by default — is to drop independent hub/mid loading and instead specify blade‑element orientation directly, keeping every rung perfectly radial (zero lean) while still following the shroud's prescribed loading. Flip the toggle to see what independent loading would have produced instead.</p>
+        </div>
+        <div class="viz-panel">
+          <div class="viz-title"><span>RULED SURFACE, UNROLLED</span><span>hub · mid · shroud, station by station</span></div>
+          <svg id="svgLadder" viewBox="0 0 420 300"></svg>
+          <div class="legend-row">
+            <span><span class="legend-dot" style="background:var(--cyan)"></span>shroud curve</span>
+            <span><span class="legend-dot" style="background:#8b95c9"></span>mid</span>
+            <span><span class="legend-dot" style="background:var(--brass)"></span>hub curve</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 7. THICKNESS ============ -->
+    <section id="s-thickness">
+      <div class="eyebrow"><span class="num">7</span> THICKNESS &amp; ASSEMBLY</div>
+      <h2>From camber line to metal</h2>
+      <p>Everything so far describes the camber surface — an infinitely thin sheet. The last step offsets it, along its local surface normal, by half the prescribed thickness in each direction to get pressure and suction faces — tapered thinner near the trailing edge, per the Kutta condition, and blended to a rounded nose at the leading edge. Set the taper up in the hero controls; the two side surfaces are colour‑coded brass (pressure) and cyan (suction) throughout this page and in the 3D model, matching the loading plots in §3.</p>
+      <div class="callout">This is also where the paper's own caveats live: the generated thickness is strictly <b>trapezoidal</b> (constant taper along every straight‑line element) — an exponential taper for stress relief has to be added afterward by hand, and it doesn't change the aerodynamics much if kept modest.</div>
+      <p>Scroll back up — every slider on this page feeds the same 3D model. That's the whole method in one loop: prescribe loading → get a flow angle → integrate an angle → connect straight lines → add thickness → blade.</p>
+    </section>
+
+    <footer>
+      <div class="eyebrow"><span class="num">i</span> SIMPLIFICATIONS IN THIS TOOL</div>
+      <p style="max-width:70ch;">This page implements the paper's design <em>logic</em> end‑to‑end but takes shortcuts the original computer program did not, in order to stay interactively explorable:</p>
+      <ul class="limits">
+        <li>Density is estimated from inlet/exit stagnation temperature only (no full compressible-flow iteration); the paper reconverges density, streamline position, and loading over several passes.</li>
+        <li>The angular‑momentum/loading relation (eq. 6) is implemented in a simplified circulation form; the paper's actual derivation and the intermediate blade‑to‑blade analysis aren't reproduced.</li>
+        <li>Camber‑line distance is approximated as meridional arc length (the paper's own stated <em>initial</em> estimate) rather than iterated to convergence.</li>
+        <li>The "radial element" blade uses the shroud streamline's loading only, matching the paper's own practical revision — hub/mid velocity distributions shown are the resulting outputs, not independently controlled.</li>
+        <li>No detailed flow‑field reanalysis, slip correction, or inlet‑incidence leading‑edge treatment is performed.</li>
+      </ul>
+      <p style="margin-top:18px;">Read the original: <a href="https://ntrs.nasa.gov/api/citations/19750003125/downloads/19750003125.pdf" target="_blank" rel="noopener">Jansen &amp; Kirschner, "Impeller Blade Design Method for Centrifugal Compressors," NASA SP‑290, 1974</a>.</p>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+/* ======================================================================
+   PRESCRIBED-LOADING IMPELLER DESIGN — interactive model
+   ====================================================================== */
+const N = 24;              // meridional stations
+const HUB_REV_SEGS = 56;   // hub surface-of-revolution segments
+
+const state = {
+  rh1:1.5, rs1:3.33, r2:5.08, L:2.75, b2:0.539,
+  Z:16, tHub:0.13, tShroud:0.05,
+  rpm:27900, mdot:4.61, T01:528, T02:708,
+  loadingType:'double', leanMode:'radial',
+  station:23, triStream:'shroud',
+  includeHub:true
+};
+
+/* ---------------- math helpers ---------------- */
+function lerp(a,b,t){return a+(b-a)*t;}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function bez(p0,p1,p2,p3,t){const m=1-t; return m*m*m*p0+3*m*m*t*p1+3*m*t*t*p2+t*t*t*p3;}
+function cumArc(pts){const m=[0]; for(let i=1;i<pts.length;i++){const dz=pts[i].z-pts[i-1].z,dr=pts[i].r-pts[i-1].r; m.push(m[i-1]+Math.hypot(dz,dr));} return m;}
+
+function buildMeridional(p){
+  const hubP=[[0,p.rh1],[0.45*p.L,p.rh1],[0.8*p.L,p.r2*0.92],[p.L,p.r2]];
+  const shL=Math.max(p.L-p.b2,0.3*p.L);
+  const shP=[[0,p.rs1],[0.35*shL,p.rs1*0.98],[0.75*shL,p.r2*1.03],[shL,p.r2]];
+  const hub=[],shroud=[];
+  for(let i=0;i<N;i++){
+    const t=i/(N-1);
+    hub.push({z:bez(hubP[0][0],hubP[1][0],hubP[2][0],hubP[3][0],t), r:bez(hubP[0][1],hubP[1][1],hubP[2][1],hubP[3][1],t)});
+    shroud.push({z:bez(shP[0][0],shP[1][0],shP[2][0],shP[3][0],t), r:bez(shP[0][1],shP[1][1],shP[2][1],shP[3][1],t)});
+  }
+  const mid=hub.map((h,i)=>({z:(h.z+shroud[i].z)/2, r:(h.r+shroud[i].r)/2}));
+  return {hub,shroud,mid};
+}
+
+function loadingShape(type, sHat){
+  let v;
+  if(type==='linear') v=1-sHat;
+  else if(type==='double') v = sHat<0.5 ? 2*sHat : 2*(1-sHat);
+  else { const pk=0.2; v = sHat<pk ? sHat/pk : (1-sHat)/(1-pk); }
+  if(sHat>0.9) v *= (1-sHat)/0.1;
+  return Math.max(v,0);
+}
+
+function integrateLoading(sArr, type, rCthetaTarget){
+  const sTotal=sArr[sArr.length-1]||1;
+  const raw=sArr.map(s=>loadingShape(type, s/sTotal));
+  const integ=[0];
+  for(let i=1;i<sArr.length;i++) integ.push(integ[i-1]+0.5*(raw[i]+raw[i-1])*(sArr[i]-sArr[i-1]));
+  const tot=integ[integ.length-1];
+  const scale = tot>1e-9 ? rCthetaTarget/tot : 0;
+  return {rCtheta:integ.map(v=>v*scale), raw};
+}
+
+function betaTheta(rArr,CmArr,rCthetaArr,omega,sArr){
+  const beta=rArr.map((r,i)=>Math.atan2(rCthetaArr[i]/r - omega*r, CmArr[i]));
+  const theta=[0];
+  for(let i=1;i<sArr.length;i++){
+    const ds=sArr[i]-sArr[i-1];
+    theta.push(theta[i-1]+0.5*(Math.tan(beta[i])/rArr[i]+Math.tan(beta[i-1])/rArr[i-1])*ds);
+  }
+  return {beta,theta};
+}
+
+/* ---------------- full design computation ---------------- */
+function computeDesign(s){
+  const {hub,shroud,mid} = buildMeridional(s);
+  const mh=cumArc(hub), ms=cumArc(shroud), mm=cumArc(mid);
+  const bWidth = hub.map((h,i)=>Math.hypot(shroud[i].z-h.z, shroud[i].r-h.r));
+
+  // density: inlet from ideal gas air, crude isentropic-ish blend to exit
+  const rho1 = (14.7*144)/(53.35*s.T01)/1728; // lbm/in^3
+  const rho2 = rho1*Math.pow(s.T02/s.T01, 2.5);
+  const rhoAt = i => lerp(rho1, rho2, i/(N-1));
+
+  const CmMid = mid.map((p,i)=> s.mdot/(rhoAt(i)*2*Math.PI*p.r*Math.max(bWidth[i],1e-3)) );
+  const CmH=[], CmS=[];
+  for(let i=0;i<N;i++){
+    let k;
+    if(i===0) k=(ms[1]-ms[0])/(mh[1]-mh[0]);
+    else if(i===N-1) k=(ms[i]-ms[i-1])/(mh[i]-mh[i-1]);
+    else k=(ms[i+1]-ms[i-1])/(mh[i+1]-mh[i-1]);
+    const rH=hub[i].r, rS=shroud[i].r, rM=mid[i].r;
+    const cmS=2*CmMid[i]*rM/(k*rH+rS);
+    CmS.push(cmS); CmH.push(k*cmS);
+  }
+
+  const omega = s.rpm*2*Math.PI/60;
+  const U2 = omega*s.r2;
+  const CpAir = 6006; // ft^2/(s^2.R), ~0.24 BTU/lbm.R, converted
+  const dH_in2 = CpAir*(s.T02-s.T01)*144; // in^2/s^2
+  const Ctheta2 = dH_in2/U2;
+  const rCtheta2 = s.r2*Ctheta2;
+
+  const loadS = integrateLoading(ms, s.loadingType, rCtheta2);
+  const loadH = integrateLoading(mh, s.loadingType, rCtheta2);
+  const loadM = integrateLoading(mm, s.loadingType, rCtheta2);
+
+  const btS = betaTheta(shroud.map(p=>p.r), CmS, loadS.rCtheta, omega, ms);
+  const btH = betaTheta(hub.map(p=>p.r), CmH, loadH.rCtheta, omega, mh);
+  const btM = betaTheta(mid.map(p=>p.r), CmMid, loadM.rCtheta, omega, mm);
+
+  // theta actually used to place geometry
+  let thetaRow; // [3][N] hub,mid,shroud
+  if(s.leanMode==='radial'){
+    thetaRow = [btS.theta.slice(), btS.theta.slice(), btS.theta.slice()];
+  } else {
+    thetaRow = [btH.theta.slice(), btM.theta.slice(), btS.theta.slice()];
+  }
+
+  return {
+    hub,shroud,mid, mh,ms,mm, bWidth,
+    CmMid,CmH,CmS,
+    rho1,rho2,
+    omega,U2,Ctheta2,rCtheta2,
+    loadS,loadH,loadM, btS,btH,btM,
+    thetaRow,
+    leanMismatchDeg: (btH.theta[N-1]-btS.theta[N-1])*180/Math.PI,
+    wrapDeg: btS.theta[N-1]*180/Math.PI
+  };
+}
+
+/* ---------------- 3D geometry from design ---------------- */
+function cyl2cart(r,th,z){ return {x:r*Math.cos(th), y:r*Math.sin(th), z:z}; }
+function sub(a,b){return {x:a.x-b.x,y:a.y-b.y,z:a.z-b.z};}
+function cross(a,b){return {x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x};}
+function norm(a){const l=Math.hypot(a.x,a.y,a.z)||1; return {x:a.x/l,y:a.y/l,z:a.z/l};}
+
+function bladeMesh(D, s){
+  const rows=[D.hub, D.mid, D.shroud];
+  const P=[[],[],[]]; // cartesian camber points [j][i]
+  for(let j=0;j<3;j++) for(let i=0;i<N;i++){
+    P[j].push(cyl2cart(rows[j][i].r, D.thetaRow[j][i], rows[j][i].z));
+  }
+  // normals via central differences
+  const NRM=[[],[],[]];
+  for(let j=0;j<3;j++) for(let i=0;i<N;i++){
+    const im=Math.max(i-1,0), ip=Math.min(i+1,N-1);
+    const Ts=sub(P[j][ip],P[j][im]);
+    const jm=Math.max(j-1,0), jp=Math.min(j+1,2);
+    const Tj=sub(P[jp][i],P[jm][i]);
+    NRM[j].push(norm(cross(Tj,Ts)));
+  }
+  // thickness field
+  function thickAt(i,j){
+    const base = lerp(s.tHub, s.tShroud, j/2);
+    const iFrac=i/(N-1);
+    let taper=1;
+    if(iFrac>0.9) taper = lerp(1,0.14,(iFrac-0.9)/0.1);
+    if(iFrac<0.06) taper *= lerp(0.45,1,iFrac/0.06);
+    return base*taper;
+  }
+  const PS=[[],[],[]], SS=[[],[],[]]; // pressure / suction surfaces
+  for(let j=0;j<3;j++) for(let i=0;i<N;i++){
+    const t=thickAt(i,j)/2, n=NRM[j][i], c=P[j][i];
+    PS[j].push({x:c.x+n.x*t, y:c.y+n.y*t, z:c.z+n.z*t});
+    SS[j].push({x:c.x-n.x*t, y:c.y-n.y*t, z:c.z-n.z*t});
+  }
+  const tris=[]; // arrays of 3 points each {x,y,z}
+  function quad(a,b,c,d, flip){ // a-b-c-d in order, two triangles
+    if(!flip){ tris.push([a,b,c]); tris.push([a,c,d]); }
+    else { tris.push([a,c,b]); tris.push([a,d,c]); }
+  }
+  for(let j=0;j<2;j++) for(let i=0;i<N-1;i++){
+    quad(PS[j][i],PS[j][i+1],PS[j+1][i+1],PS[j+1][i], false);
+    quad(SS[j][i],SS[j][i+1],SS[j+1][i+1],SS[j+1][i], true);
+  }
+  // LE cap (i=0) and TE cap (i=N-1): connect PS/SS across j
+  for(let j=0;j<2;j++){
+    quad(PS[j][0],SS[j][0],SS[j+1][0],PS[j+1][0], false);
+    quad(PS[j][N-1],PS[j+1][N-1],SS[j+1][N-1],SS[j][N-1], false);
+  }
+  // hub edge (j=0) and shroud edge (j=2): connect PS/SS across i
+  for(let i=0;i<N-1;i++){
+    quad(PS[0][i],SS[0][i],SS[0][i+1],PS[0][i+1], false);
+    quad(PS[2][i],PS[2][i+1],SS[2][i+1],SS[2][i], false);
+  }
+  return tris;
+}
+
+function hubMesh(D){
+  const segs=HUB_REV_SEGS, tris=[];
+  const ring=(i)=>{ const pts=[]; for(let k=0;k<segs;k++){ const a=k/segs*Math.PI*2; pts.push(cyl2cart(D.hub[i].r,a,D.hub[i].z)); } return pts; };
+  const rings=[]; for(let i=0;i<N;i++) rings.push(ring(i));
+  for(let i=0;i<N-1;i++) for(let k=0;k<segs;k++){
+    const k2=(k+1)%segs;
+    tris.push([rings[i][k],rings[i][k2],rings[i+1][k2]]);
+    tris.push([rings[i][k],rings[i+1][k2],rings[i+1][k]]);
+  }
+  // end caps (small disc at axis, radius 0)
+  const capCenter0={x:0,y:0,z:D.hub[0].z}, capCenterN={x:0,y:0,z:D.hub[N-1].z};
+  for(let k=0;k<segs;k++){ const k2=(k+1)%segs;
+    tris.push([capCenter0, rings[0][k2], rings[0][k]]);
+    tris.push([capCenterN, rings[N-1][k], rings[N-1][k2]]);
+  }
+  return tris;
+}
+
+function rotateTris(tris, ang){
+  const c=Math.cos(ang), s=Math.sin(ang);
+  return tris.map(tri=>tri.map(p=>({x:p.x*c-p.y*s, y:p.x*s+p.y*c, z:p.z})));
+}
+
+function fullAssembly(D, s, includeHub){
+  const one = bladeMesh(D, s);
+  let all=[];
+  for(let k=0;k<s.Z;k++) all=all.concat(rotateTris(one, k*2*Math.PI/s.Z));
+  if(includeHub) all=all.concat(hubMesh(D));
+  return all;
+}
+
+/* ================= THREE.JS VIEWER ================= */
+let scene, camera, renderer, meshGroup;
+let camAz=0.7, camEl=0.42, camRadius=16, camTarget=new THREE.Vector3(0,0,1.2);
+const viewerEl = document.getElementById('viewer');
+
+function initThree(){
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(38, viewerEl.clientWidth/viewerEl.clientHeight, 0.05, 500);
+  renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+  viewerEl.appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0x8a8f96, 0.9));
+  const key = new THREE.DirectionalLight(0xfff3e0, 1.15); key.position.set(6,8,10); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x62aebe, 0.55); rim.position.set(-8,-4,-6); scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(-4,6,-8); scene.add(fill);
+
+  meshGroup = new THREE.Group(); scene.add(meshGroup);
+  updateCamera();
+  animate();
+  window.addEventListener('resize', onResize);
+
+  let dragging=false, lastX=0,lastY=0;
+  viewerEl.addEventListener('mousedown', e=>{dragging=true; lastX=e.clientX; lastY=e.clientY; viewerEl.classList.add('dragging');});
+  window.addEventListener('mouseup', ()=>{dragging=false; viewerEl.classList.remove('dragging');});
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+    camAz -= dx*0.006; camEl = clamp(camEl - dy*0.006, -1.35, 1.35);
+    updateCamera();
+  });
+  viewerEl.addEventListener('wheel', e=>{
+    e.preventDefault(); camRadius = clamp(camRadius*(1+e.deltaY*0.001), 4, 60); updateCamera();
+  }, {passive:false});
+  // touch
+  let touchLast=null, pinchDist=null;
+  viewerEl.addEventListener('touchstart', e=>{
+    if(e.touches.length===1){ touchLast={x:e.touches[0].clientX,y:e.touches[0].clientY}; }
+    else if(e.touches.length===2){ pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); }
+  }, {passive:true});
+  viewerEl.addEventListener('touchmove', e=>{
+    if(e.touches.length===1 && touchLast){
+      const dx=e.touches[0].clientX-touchLast.x, dy=e.touches[0].clientY-touchLast.y;
+      touchLast={x:e.touches[0].clientX,y:e.touches[0].clientY};
+      camAz -= dx*0.006; camEl = clamp(camEl-dy*0.006,-1.35,1.35); updateCamera();
+    } else if(e.touches.length===2 && pinchDist){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      camRadius = clamp(camRadius*(1+(pinchDist-d)*0.004), 4, 60); pinchDist=d; updateCamera();
+    }
+  }, {passive:true});
+  viewerEl.addEventListener('touchend', ()=>{touchLast=null; pinchDist=null;});
+}
+function updateCamera(){
+  const x = camTarget.x + camRadius*Math.cos(camEl)*Math.sin(camAz);
+  const y = camTarget.y + camRadius*Math.cos(camEl)*Math.cos(camAz);
+  const z = camTarget.z + camRadius*Math.sin(camEl);
+  camera.position.set(x,y,z);
+  camera.up.set(0,0,1);
+  camera.lookAt(camTarget);
+}
+function onResize(){
+  camera.aspect = viewerEl.clientWidth/viewerEl.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+}
+function animate(){ requestAnimationFrame(animate); renderer.render(scene,camera); }
+
+function trisToBufferGeometry(tris, colorHex){
+  const pos = new Float32Array(tris.length*9);
+  for(let i=0;i<tris.length;i++){
+    const t=tris[i];
+    pos.set([t[0].x,t[0].y,t[0].z, t[1].x,t[1].y,t[1].z, t[2].x,t[2].y,t[2].z], i*9);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+let lastDesign=null;
+function rebuild3D(){
+  const D = computeDesign(state);
+  lastDesign = D;
+  while(meshGroup.children.length) meshGroup.remove(meshGroup.children[0]);
+
+  const oneBlade = bladeMesh(D, state);
+  // split pressure vs suction roughly by normal sign for colour coding: recompute separately for clean coloring
+  // (simpler: color whole blade brass on one material, cyan accents via wireframe already conveyed elsewhere)
+  for(let k=0;k<state.Z;k++){
+    const tris = rotateTris(oneBlade, k*2*Math.PI/state.Z);
+    const geo = trisToBufferGeometry(tris);
+    const mat = new THREE.MeshStandardMaterial({color:0xC6913F, metalness:0.55, roughness:0.38, side:THREE.DoubleSide});
+    meshGroup.add(new THREE.Mesh(geo, mat));
+  }
+  if(state.includeHub){
+    const htris = hubMesh(D);
+    const hgeo = trisToBufferGeometry(htris);
+    const hmat = new THREE.MeshStandardMaterial({color:0x2b3238, metalness:0.35, roughness:0.55, side:THREE.DoubleSide});
+    meshGroup.add(new THREE.Mesh(hgeo, hmat));
+  }
+  camTarget.set(0,0, (D.hub[0].z+D.hub[N-1].z)/2 );
+  camRadius = Math.max(state.r2*3.1, 8);
+  updateCamera();
+
+  renderReadouts(D);
+  renderAllPlots(D);
+}
+
+/* ================= STL EXPORT ================= */
+function buildSTLBinary(tris){
+  const count=tris.length;
+  const buf=new ArrayBuffer(84+50*count);
+  const dv=new DataView(buf);
+  const header="Impeller — prescribed loading method (illustrative export)";
+  for(let i=0;i<Math.min(header.length,79);i++) dv.setUint8(i, header.charCodeAt(i));
+  dv.setUint32(80,count,true);
+  let off=84;
+  for(let i=0;i<count;i++){
+    const [a,b,c]=tris[i];
+    const ux=b.x-a.x, uy=b.y-a.y, uz=b.z-a.z;
+    const vx=c.x-a.x, vy=c.y-a.y, vz=c.z-a.z;
+    let nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+    const nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl;
+    dv.setFloat32(off,nx,true); dv.setFloat32(off+4,ny,true); dv.setFloat32(off+8,nz,true);
+    dv.setFloat32(off+12,a.x,true); dv.setFloat32(off+16,a.y,true); dv.setFloat32(off+20,a.z,true);
+    dv.setFloat32(off+24,b.x,true); dv.setFloat32(off+28,b.y,true); dv.setFloat32(off+32,b.z,true);
+    dv.setFloat32(off+36,c.x,true); dv.setFloat32(off+40,c.y,true); dv.setFloat32(off+44,c.z,true);
+    dv.setUint16(off+48,0,true);
+    off+=50;
+  }
+  return buf;
+}
+document.getElementById('btnStl').addEventListener('click', ()=>{
+  const statusEl=document.getElementById('stlStatus');
+  statusEl.textContent='building mesh…';
+  setTimeout(()=>{
+    const D = lastDesign || computeDesign(state);
+    const tris = fullAssembly(D, state, state.includeHub);
+    const buf = buildSTLBinary(tris);
+    const blob = new Blob([buf], {type:'model/stl'});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='impeller.stl'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    statusEl.textContent = tris.length.toLocaleString()+' triangles · '+(buf.byteLength/1024).toFixed(0)+' KB';
+  }, 10);
+});
+
+/* ================= SVG PLOTTING HELPERS ================= */
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function clearSvg(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function pathFrom(pts){ return pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(2)+','+p[1].toFixed(2)).join(' '); }
+function scaleFn(dmin,dmax,rmin,rmax){ return v=> rmin + (v-dmin)/(dmax-dmin||1)*(rmax-rmin); }
+
+function renderReadouts(D){
+  const backAngle = D.btS.beta[N-1]*180/Math.PI;
+  document.getElementById('heroReadout').innerHTML =
+    `Z = <b>${state.Z}</b> blades &nbsp;·&nbsp; ${state.rpm.toLocaleString()} rpm<br>`+
+    `discharge β ≈ <b>${backAngle.toFixed(1)}°</b> &nbsp;·&nbsp; wrap ≈ <b>${D.wrapDeg.toFixed(0)}°</b><br>`+
+    `U₂ = <b>${(D.U2/12).toFixed(0)}</b> ft/s &nbsp;·&nbsp; ΔT₀ = <b>${(state.T02-state.T01)}</b> °R`;
+  document.getElementById('topReadoutStrip').innerHTML =
+    `<span>ṁ = <b>${state.mdot.toFixed(2)}</b> lbm/s</span>`+
+    `<span>ρ₁ = <b>${(D.rho1*1728).toFixed(4)}</b> lbm/ft³</span>`+
+    `<span>C<sub>θ2</sub> = <b>${(D.Ctheta2/12).toFixed(0)}</b> ft/s</span>`+
+    `<span>lean mode = <b>${state.leanMode}</b></span>`;
+}
+
+function renderMeridional(D){
+  const svg=document.getElementById('svgMeridional'); clearSvg(svg);
+  const allR = D.hub.concat(D.shroud).map(p=>p.r), allZ=D.hub.concat(D.shroud).map(p=>p.z);
+  const pad=34;
+  const xs=scaleFn(Math.min(...allZ),Math.max(...allZ), pad, 480-pad);
+  const ys=scaleFn(0, Math.max(...allR)*1.05, 300-pad, pad);
+  svg.appendChild(svgEl('line',{x1:xs(Math.min(...allZ)),x2:xs(Math.max(...allZ)),y1:ys(0),y2:ys(0),stroke:'#2C3238'}));
+  const hubPts=D.hub.map(p=>[xs(p.z),ys(p.r)]);
+  const shPts=D.shroud.map(p=>[xs(p.z),ys(p.r)]);
+  svg.appendChild(svgEl('path',{d:pathFrom(hubPts),fill:'none',stroke:'#C6913F','stroke-width':2}));
+  svg.appendChild(svgEl('path',{d:pathFrom(shPts),fill:'none',stroke:'#62AEBE','stroke-width':2}));
+  for(let i=0;i<N;i+=2){
+    svg.appendChild(svgEl('line',{x1:hubPts[i][0],y1:hubPts[i][1],x2:shPts[i][0],y2:shPts[i][1],stroke:'#616A71','stroke-width':1,'stroke-dasharray':'2,3'}));
+  }
+  svg.appendChild(svgEl('text',{x:pad,y:18,fill:'#9AA2A9','font-size':10,'font-family':'IBM Plex Mono'})).textContent='r';
+  svg.appendChild(svgEl('text',{x:462,y:294,fill:'#9AA2A9','font-size':10,'font-family':'IBM Plex Mono','text-anchor':'end'})).textContent='z (in)';
+}
+
+function renderCm(D){
+  const svg=document.getElementById('svgCm'); clearSvg(svg);
+  const toFts = v=>v/12;
+  const all=D.CmH.concat(D.CmMid,D.CmS).map(toFts);
+  const pad={l:38,r:14,t:14,b:26};
+  const xs=scaleFn(0,N-1,pad.l,480-pad.r);
+  const ys=scaleFn(0,Math.max(...all)*1.1,300-pad.b,pad.t);
+  [[D.CmS,'#62AEBE'],[D.CmMid,'#8b95c9'],[D.CmH,'#C6913F']].forEach(([arr,col])=>{
+    const pts=arr.map((v,i)=>[xs(i),ys(toFts(v))]);
+    svg.appendChild(svgEl('path',{d:pathFrom(pts),fill:'none',stroke:col,'stroke-width':2}));
+  });
+  svg.appendChild(svgEl('line',{x1:pad.l,x2:pad.l,y1:pad.t,y2:300-pad.b,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('line',{x1:pad.l,x2:480-pad.r,y1:300-pad.b,y2:300-pad.b,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('text',{x:6,y:pad.t+4,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono'})).textContent=Math.round(Math.max(...all))+'';
+  svg.appendChild(svgEl('text',{x:pad.l,y:298,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono'})).textContent='LE';
+  svg.appendChild(svgEl('text',{x:472,y:298,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono','text-anchor':'end'})).textContent='TE';
+}
+
+function renderSplit(D){
+  const svg=document.getElementById('svgSplit'); clearSvg(svg);
+  const toFts=v=>v/12;
+  const all=D.CmH.concat(D.CmMid,D.CmS).map(toFts);
+  const pad={l:44,r:20,t:16,b:30};
+  const xs=scaleFn(0,N-1,pad.l,700-pad.r);
+  const ys=scaleFn(0,Math.max(...all)*1.1,260-pad.b,pad.t);
+  const grid=svgEl('g',{});
+  for(let g=0; g<=4; g++){
+    const yy=pad.t+g*(260-pad.b-pad.t)/4;
+    grid.appendChild(svgEl('line',{x1:pad.l,x2:700-pad.r,y1:yy,y2:yy,stroke:'#22262b'}));
+  }
+  svg.appendChild(grid);
+  [[D.CmS,'#62AEBE','shroud'],[D.CmMid,'#8b95c9','mean'],[D.CmH,'#C6913F','hub']].forEach(([arr,col,label],idx)=>{
+    const pts=arr.map((v,i)=>[xs(i),ys(toFts(v))]);
+    svg.appendChild(svgEl('path',{d:pathFrom(pts),fill:'none',stroke:col,'stroke-width':2.2}));
+    svg.appendChild(svgEl('text',{x:700-pad.r-4,y:pts[pts.length-1][1]+4*(idx-1),fill:col,'font-size':10,'font-family':'IBM Plex Mono','text-anchor':'end'})).textContent=label;
+  });
+  svg.appendChild(svgEl('line',{x1:pad.l,x2:pad.l,y1:pad.t,y2:260-pad.b,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('line',{x1:pad.l,x2:700-pad.r,y1:260-pad.b,y2:260-pad.b,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('text',{x:0,y:pad.t+4,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono'})).textContent='ft/s';
+}
+
+function renderLoading(D){
+  const svg=document.getElementById('svgLoading'); clearSvg(svg);
+  document.getElementById('loadingTag').textContent = state.loadingType;
+  const arr = D.loadS.raw;
+  const pad={l:14,r:14,t:14,b:20};
+  const xs=scaleFn(0,N-1,pad.l,420-pad.r);
+  const mx=Math.max(...arr,0.001);
+  const ys=scaleFn(0,mx*1.15,180-pad.b,pad.t);
+  const base=ys(0);
+  const pts=arr.map((v,i)=>[xs(i),ys(v)]);
+  const area = 'M'+xs(0).toFixed(1)+','+base+' '+pts.map(p=>'L'+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+' L'+xs(N-1).toFixed(1)+','+base+' Z';
+  svg.appendChild(svgEl('path',{d:area, fill:'rgba(198,145,63,0.18)', stroke:'none'}));
+  svg.appendChild(svgEl('path',{d:pathFrom(pts), fill:'none', stroke:'#C6913F','stroke-width':2}));
+  svg.appendChild(svgEl('line',{x1:pad.l,x2:420-pad.r,y1:base,y2:base,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('text',{x:pad.l,y:176,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono'})).textContent='LE';
+  svg.appendChild(svgEl('text',{x:420-pad.r,y:176,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono','text-anchor':'end'})).textContent='TE';
+  svg.appendChild(svgEl('text',{x:pad.l,y:26,fill:'#8f6b33','font-size':9,'font-family':'IBM Plex Mono'})).textContent='Wp − Ws';
+}
+
+function renderRCtheta(D){
+  const svg=document.getElementById('svgRCtheta'); clearSvg(svg);
+  const pad={l:14,r:14,t:12,b:18};
+  const arr=D.loadS.rCtheta;
+  const xs=scaleFn(0,N-1,pad.l,420-pad.r);
+  const ys=scaleFn(0,Math.max(...arr)*1.08,160-pad.b,pad.t);
+  const pts=arr.map((v,i)=>[xs(i),ys(v)]);
+  svg.appendChild(svgEl('path',{d:pathFrom(pts),fill:'none',stroke:'#62AEBE','stroke-width':2.2}));
+  svg.appendChild(svgEl('circle',{cx:pts[N-1][0],cy:pts[N-1][1],r:3,fill:'#62AEBE'}));
+  svg.appendChild(svgEl('line',{x1:pad.l,x2:420-pad.r,y1:160-pad.b,y2:160-pad.b,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('text',{x:pts[N-1][0],y:pts[N-1][1]-8,fill:'#62AEBE','font-size':9,'font-family':'IBM Plex Mono','text-anchor':'end'})).textContent='rCθ₂';
+}
+
+function renderTriangle(D){
+  const svg=document.getElementById('svgTriangle'); clearSvg(svg);
+  const i=state.station;
+  const useS = state.triStream==='shroud';
+  const r = useS? D.shroud[i].r : D.hub[i].r;
+  const Cm = (useS? D.CmS[i] : D.CmH[i])/12;
+  const rCth = useS? D.loadS.rCtheta[i] : D.loadH.rCtheta[i];
+  const Cth = rCth/r/12;
+  const U = D.omega*r/12;
+  document.getElementById('triStationTag').textContent = (useS?'shroud':'hub')+' · station '+i+'/'+ (N-1);
+
+  const maxMag = Math.max(Cm, Math.abs(Cth), U)*1.25+1e-6;
+  const ox=70, oy=290, sc=(320)/maxMag;
+  const toXY=(m,th)=>[ox+m*sc, oy-th*sc];
+  const O=[ox,oy];
+  const Utip=toXY(0,U);
+  const Ctip=toXY(Cm,Cth);
+  svg.appendChild(svgEl('line',{x1:ox-20,x2:ox+330,y1:oy,y2:oy,stroke:'#2C3238'}));
+  svg.appendChild(svgEl('text',{x:ox+332,y:oy+4,fill:'#616A71','font-size':10,'font-family':'IBM Plex Mono'})).textContent='Cm →';
+  // U
+  svg.appendChild(svgEl('line',{x1:O[0],y1:O[1],x2:Utip[0],y2:Utip[1],stroke:'#C6913F','stroke-width':2.4}));
+  svg.appendChild(svgEl('text',{x:Utip[0]+6,y:Utip[1],fill:'#C6913F','font-size':11,'font-family':'IBM Plex Mono'})).textContent='U';
+  // C (absolute)
+  svg.appendChild(svgEl('line',{x1:O[0],y1:O[1],x2:Ctip[0],y2:Ctip[1],stroke:'#8b95c9','stroke-width':2.2}));
+  svg.appendChild(svgEl('text',{x:Ctip[0]+6,y:Ctip[1]-4,fill:'#8b95c9','font-size':11,'font-family':'IBM Plex Mono'})).textContent='C';
+  // W (relative) from Utip to Ctip
+  svg.appendChild(svgEl('line',{x1:Utip[0],y1:Utip[1],x2:Ctip[0],y2:Ctip[1],stroke:'#62AEBE','stroke-width':2.6}));
+  svg.appendChild(svgEl('text',{x:(Utip[0]+Ctip[0])/2+6,y:(Utip[1]+Ctip[1])/2,fill:'#62AEBE','font-size':11,'font-family':'IBM Plex Mono'})).textContent='W';
+  const beta = (useS? D.btS.beta[i]: D.btH.beta[i])*180/Math.PI;
+  svg.appendChild(svgEl('text',{x:ox+8,y:oy-10,fill:'#9AA2A9','font-size':11,'font-family':'IBM Plex Mono'})).textContent='β = '+beta.toFixed(1)+'°';
+}
+
+function renderPolar(D){
+  const svg=document.getElementById('svgPolar'); clearSvg(svg);
+  document.getElementById('thetaWrapTag').textContent = D.wrapDeg.toFixed(0)+'° wrap';
+  const cx=210, cy=210, maxR = Math.max(state.r2, state.rs1)*1.08;
+  const scl = 185/maxR;
+  svg.appendChild(svgEl('circle',{cx,cy,r:state.r2*scl,fill:'none',stroke:'#22262b'}));
+  svg.appendChild(svgEl('circle',{cx,cy,r:state.rh1*scl,fill:'none',stroke:'#22262b'}));
+  // faint other blades
+  for(let k=1;k<state.Z;k++){
+    const pts=D.shroud.map((p,i)=>{
+      const a=D.btS.theta[i]+k*2*Math.PI/state.Z;
+      return [cx+p.r*scl*Math.sin(a), cy-p.r*scl*Math.cos(a)];
+    });
+    svg.appendChild(svgEl('path',{d:pathFrom(pts),fill:'none',stroke:'#31373d','stroke-width':1}));
+  }
+  const mainPts = D.shroud.map((p,i)=>[cx+p.r*scl*Math.sin(D.btS.theta[i]), cy-p.r*scl*Math.cos(D.btS.theta[i])]);
+  svg.appendChild(svgEl('path',{d:pathFrom(mainPts),fill:'none',stroke:'#62AEBE','stroke-width':2.6}));
+  if(state.leanMode==='arbitrary'){
+    const hubPts = D.hub.map((p,i)=>[cx+p.r*scl*Math.sin(D.btH.theta[i]), cy-p.r*scl*Math.cos(D.btH.theta[i])]);
+    svg.appendChild(svgEl('path',{d:pathFrom(hubPts),fill:'none',stroke:'#C6913F','stroke-width':2,'stroke-dasharray':'4,3'}));
+  }
+  svg.appendChild(svgEl('circle',{cx,cy,r:2.5,fill:'#616A71'}));
+}
+
+function renderLadder(D){
+  const svg=document.getElementById('svgLadder'); clearSvg(svg);
+  const pad={l:50,r:50,t:20,b:20};
+  const cols=[pad.l, 210, 420-pad.r];
+  const ys=scaleFn(0,N-1,pad.t,300-pad.b);
+  const thetaOf = (j,i)=> D.thetaRow[j][i];
+  const allTheta = [0,1,2].flatMap(j=>D.thetaRow[j]);
+  const xs=scaleFn(Math.min(...allTheta), Math.max(...allTheta), -34, 34);
+  const labels=['hub','mid','shroud']; const colors=['#C6913F','#8b95c9','#62AEBE'];
+  for(let j=0;j<3;j++){
+    const pts=[]; for(let i=0;i<N;i++) pts.push([cols[j]+xs(thetaOf(j,i)), ys(i)]);
+    svg.appendChild(svgEl('path',{d:pathFrom(pts),fill:'none',stroke:colors[j],'stroke-width':2}));
+    svg.appendChild(svgEl('text',{x:cols[j],y:12,fill:colors[j],'font-size':10,'font-family':'IBM Plex Mono','text-anchor':'middle'})).textContent=labels[j];
+    if(j<2){
+      for(let i=0;i<N;i+=2){
+        const pts2=[]; for(let jj=j;jj<=j+1;jj++) pts2.push([cols[jj]+xs(thetaOf(jj,i)), ys(i)]);
+        svg.appendChild(svgEl('line',{x1:pts2[0][0],y1:pts2[0][1],x2:pts2[1][0],y2:pts2[1][1],stroke:'#41474d','stroke-width':1}));
+      }
+    }
+  }
+  svg.appendChild(svgEl('text',{x:6,y:ys(0)+3,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono'})).textContent='LE';
+  svg.appendChild(svgEl('text',{x:6,y:ys(N-1)+3,fill:'#616A71','font-size':9,'font-family':'IBM Plex Mono'})).textContent='TE';
+}
+
+function renderAllPlots(D){
+  renderMeridional(D); renderCm(D); renderSplit(D);
+  renderLoading(D); renderRCtheta(D);
+  renderTriangle(D); renderPolar(D); renderLadder(D);
+}
+
+/* ================= WIRE UP CONTROLS ================= */
+function fmt(v,d=2){return (+v).toFixed(d);}
+const sliderDefs = [
+  ['rh1','v_rh1', v=>fmt(v,2)+' in'],
+  ['rs1','v_rs1', v=>fmt(v,2)+' in'],
+  ['r2','v_r2', v=>fmt(v,2)+' in'],
+  ['L','v_L', v=>fmt(v,2)+' in'],
+  ['b2','v_b2', v=>fmt(v,2)+' in'],
+  ['Z','v_Z', v=>Math.round(v)],
+  ['rpm','v_rpm', v=>Math.round(v).toLocaleString()+' rpm'],
+  ['mdot','v_mdot', v=>fmt(v,2)+' lbm/s'],
+  ['T02','v_T02', v=>Math.round(v)+' °R'],
+];
+sliderDefs.forEach(([key,valId,fmtFn])=>{
+  const el=document.getElementById(key);
+  el.value = state[key];
+  document.getElementById(valId).textContent = fmtFn(state[key]);
+  el.addEventListener('input', ()=>{
+    state[key] = parseFloat(el.value);
+    document.getElementById(valId).textContent = fmtFn(state[key]);
+    rebuild3D();
+  });
+});
+// thickness pair (single slider drives hub, keeps shroud proportional)
+const tHubEl=document.getElementById('tHub');
+tHubEl.value=state.tHub;
+document.getElementById('v_th').textContent = state.tHub.toFixed(3)+' / '+state.tShroud.toFixed(3)+' in';
+tHubEl.addEventListener('input', ()=>{
+  const t=parseFloat(tHubEl.value);
+  const ratio = state.tShroud/state.tHub;
+  state.tHub=t; state.tShroud=Math.max(0.02, t*ratio);
+  document.getElementById('v_th').textContent = state.tHub.toFixed(3)+' / '+state.tShroud.toFixed(3)+' in';
+  rebuild3D();
+});
+
+document.getElementById('includeHub').addEventListener('change', e=>{ state.includeHub=e.target.checked; rebuild3D(); });
+
+function wireToggle(id, key, cb){
+  const wrap=document.getElementById(id);
+  wrap.querySelectorAll('button').forEach(btn=>{
+    if(btn.dataset.v===state[key]) btn.classList.add('active');
+    btn.addEventListener('click', ()=>{
+      wrap.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state[key]=btn.dataset.v;
+      if(cb) cb();
+      rebuild3D();
+    });
+  });
+}
+wireToggle('loadingToggle','loadingType');
+wireToggle('leanToggle','leanMode');
+wireToggle('triStreamToggle','triStream', ()=>renderTriangle(lastDesign));
+
+const stationEl=document.getElementById('stationScrub');
+stationEl.max = N-1; stationEl.value=state.station;
+document.getElementById('v_station').textContent = state.station;
+stationEl.addEventListener('input', ()=>{
+  state.station=parseInt(stationEl.value);
+  document.getElementById('v_station').textContent = state.station;
+  renderTriangle(lastDesign);
+});
+
+/* ================= NAV ================= */
+const NAV = [
+  ['s-hero','0','Overview'],
+  ['s-continuity','1','Continuity'],
+  ['s-split','2','Hub / shroud split'],
+  ['s-loading','3','Prescribed loading'],
+  ['s-triangle','4','Flow angle'],
+  ['s-theta','5','Blade angle'],
+  ['s-ruled','6','Straight‑line elements'],
+  ['s-thickness','7','Thickness'],
+];
+const railList=document.getElementById('railList');
+const mobileNav=document.getElementById('mobileNav');
+NAV.forEach(([id,num,label])=>{
+  const li=document.createElement('li');
+  li.innerHTML=`<a href="#${id}" data-id="${id}"><span class="tag">${num}</span>${label}</a>`;
+  railList.appendChild(li);
+  const a=document.createElement('a'); a.href='#'+id; a.dataset.id=id; a.textContent=num+' · '+label;
+  mobileNav.appendChild(a);
+});
+const allNavLinks=()=>document.querySelectorAll('.railnav a, .topbar-mobile a');
+const sectionEls = NAV.map(n=>document.getElementById(n[0]));
+function updateActiveNav(){
+  let current=sectionEls[0].id;
+  for(const s of sectionEls){ if(s.getBoundingClientRect().top < window.innerHeight*0.35) current=s.id; }
+  allNavLinks().forEach(a=> a.classList.toggle('active', a.dataset.id===current));
+}
+window.addEventListener('scroll', updateActiveNav, {passive:true});
+
+/* ================= INIT ================= */
+initThree();
+rebuild3D();
+updateActiveNav();
+</script>
+</body>
+</html>
