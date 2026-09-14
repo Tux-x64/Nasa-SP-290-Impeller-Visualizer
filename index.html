@@ -74,24 +74,37 @@ body.splash-active{overflow:hidden; height:100vh;}
 .shell{display:flex; max-width:1400px; margin:0 auto; overflow-x:hidden;}
 .railnav{
   width:210px; flex:none; position:sticky; top:0; align-self:flex-start;
-  height:100vh; overflow-y:auto; overflow-x:hidden; padding:28px 0 28px 28px; border-right:1px solid var(--line);
+  height:100vh; overflow-y:auto; overflow-x:hidden; padding:28px 16px 28px 28px; border-right:1px solid var(--line);
 }
-.railnav .brand{font-family:var(--head); font-size:19px; color:var(--text); margin-bottom:2px;}
-.railnav .brand-sub{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-bottom:26px; letter-spacing:.06em;}
+.railnav .brand{font-family:var(--head); font-size:19px; color:var(--text); margin-bottom:2px; overflow-wrap:break-word;}
+.railnav .brand-sub{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-bottom:26px; letter-spacing:.06em; overflow-wrap:break-word;}
 .railnav ol{list-style:none; margin:0; padding:0; border-left:1px solid var(--line);}
 .railnav li{margin:0;}
 .railnav a{
   display:block; padding:8px 0 8px 16px; margin-left:-1px; border-left:1px solid transparent;
-  font-size:13px; color:var(--text-dim); text-decoration:none; transition:color .15s, border-color .15s;
+  font-size:13px; color:var(--text-dim); text-decoration:none; transition:color .15s, border-color .15s; overflow-wrap:break-word;
 }
 .railnav a:hover{color:var(--text);}
 .railnav a.active{color:var(--brass); border-left-color:var(--brass);}
 .railnav .tag{font-family:var(--mono); font-size:10px; color:var(--text-faint); display:block;}
 .railnav .src{margin-top:24px; padding-top:16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--text-faint); line-height:1.5;}
-.railnav .src a{color:var(--text-faint); text-decoration:underline; text-underline-offset:2px;}
+.railnav .src a{color:var(--text-faint); text-decoration:underline; text-underline-offset:2px; display:inline-block; max-width:100%; overflow-wrap:anywhere; word-break:break-word;}
 
 .main{flex:1; min-width:0; padding:0 40px 100px;}
 .topbar-mobile{display:none;}
+.topbar-mobile a{overflow-wrap:normal; white-space:nowrap;}
+
+/* Belt-and-suspenders responsive switch: some embedded viewers report the
+   media-query viewport differently than window.innerWidth, so JS mirrors
+   the same breakpoint onto a body class. Either mechanism alone is enough
+   to correctly switch layouts. */
+body.is-narrow .railnav{display:none !important;}
+body.is-narrow .topbar-mobile{display:block !important;}
+body.is-narrow .main{padding:0 18px 80px !important;}
+body.is-narrow .two-col{grid-template-columns:1fr !important;}
+body.is-narrow .hero-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; row-gap:18px;}
+body.is-narrow .hero-controls .stl-col{border-left:none !important; padding-left:0 !important; grid-column:1/-1 !important; border-top:1px solid var(--line); padding-top:18px;}
+body.is-narrow .control-grid{grid-template-columns:1fr !important;}
 
 section{padding-top:70px; scroll-margin-top:20px;}
 section:first-of-type{padding-top:32px;}
@@ -199,6 +212,19 @@ select{width:100%; cursor:pointer;}
   .hero-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr); row-gap:18px;}
   .hero-controls .stl-col{border-left:none; padding-left:0; grid-column:1/-1; border-top:1px solid var(--line); padding-top:18px;}
   .control-grid{grid-template-columns:1fr;}
+}
+@media (max-width:560px){
+  .intro h1{font-size:27px;}
+  .intro p{font-size:14.5px;}
+  .hero-controls{grid-template-columns:1fr; padding:16px;}
+  .hero-wrap{margin-top:6px;}
+  .formula{font-size:14px;}
+  .eyebrow{font-size:10.5px;}
+  h2{font-size:22px;}
+  section{padding-top:52px;}
+  .viz-panel{padding:10px;}
+  .topbar-mobile a{margin-right:14px; font-size:11px;}
+  .stl-col{padding-left:0;}
 }
 
 /* ---------- diagram / schematic section ---------- */
@@ -1152,6 +1178,18 @@ stationEl.addEventListener('input', ()=>{
   document.getElementById('v_station').textContent = state.station;
   renderTriangle(lastDesign);
 });
+
+/* ================= RESPONSIVE MODE (redundant safety net) ================= */
+// Some embedded/iframe viewers resolve CSS media-query width differently
+// than window.innerWidth. Mirroring the same 1000px breakpoint onto a body
+// class means the layout switches correctly even if one mechanism doesn't
+// fire in a given host — only one of the two needs to work.
+function applyResponsiveMode(){
+  document.body.classList.toggle('is-narrow', window.innerWidth <= 1000);
+}
+applyResponsiveMode();
+window.addEventListener('resize', applyResponsiveMode, {passive:true});
+window.addEventListener('orientationchange', applyResponsiveMode, {passive:true});
 
 /* ================= NAV ================= */
 const NAV = [
