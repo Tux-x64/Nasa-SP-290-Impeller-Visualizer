@@ -50,17 +50,25 @@ code, .var{font-family:var(--mono); color:var(--cyan); font-size:.95em;}
 body.splash-active{overflow:hidden; height:100vh;}
 #splash{
   position:fixed; inset:0; z-index:999; background:var(--bg);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
-  transition:opacity .6s ease, visibility .6s ease;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  transition:opacity .55s ease, visibility .55s ease;
 }
 #splash.hide{opacity:0; visibility:hidden; pointer-events:none;}
-#splashTurbo{width:min(38vw,220px); height:min(38vw,220px); filter:drop-shadow(0 0 24px rgba(198,145,63,.18));}
-#turboBlades path{fill:var(--brass);}
-#turboBlades path:nth-child(odd){fill:var(--brass-dim);}
-.splash-rpm{font-family:var(--mono); font-size:22px; color:var(--brass); letter-spacing:.04em; font-variant-numeric:tabular-nums;}
-.splash-label{font-family:var(--mono); font-size:11px; color:var(--text-faint); letter-spacing:.1em;}
-.splash-bar{width:200px; height:2px; background:#22262b; overflow:hidden;}
-.splash-bar-fill{width:0%; height:100%; background:var(--brass);}
+#splash.flash #splashTurbo{filter:drop-shadow(0 0 34px rgba(198,145,63,.55)) drop-shadow(0 0 6px rgba(233,195,132,.7));}
+#splashStage{position:relative; width:min(40vw,232px); height:min(40vw,232px);}
+#splashGlow{
+  position:absolute; inset:-18%; border-radius:50%;
+  background:radial-gradient(circle, rgba(198,145,63,.30) 0%, rgba(198,145,63,0) 68%);
+  animation:splashPulse 1.7s ease-in-out infinite;
+}
+@keyframes splashPulse{0%,100%{opacity:.55; transform:scale(.94);} 50%{opacity:1; transform:scale(1.04);}}
+#splashTurbo{position:relative; width:100%; height:100%; filter:drop-shadow(0 0 18px rgba(198,145,63,.16)); transition:filter .25s ease;}
+#turboBlades path{fill:url(#bladeGrad); stroke:#150f04; stroke-width:.6;}
+#turboBladesGhost1 path, #turboBladesGhost2 path{fill:var(--brass);}
+.splash-readout{display:flex; flex-direction:column; align-items:center; gap:6px;}
+.splash-rpm{font-family:var(--mono); font-size:23px; color:var(--brass); letter-spacing:.04em; font-variant-numeric:tabular-nums; text-shadow:0 0 14px rgba(198,145,63,.35);}
+.splash-label{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:.1em; min-width:1px; text-align:center; height:14px;}
+.splash-label b{color:var(--cyan); font-weight:500;}
 
 /* ---------- layout shell ---------- */
 .shell{display:flex; max-width:1400px; margin:0 auto; overflow-x:hidden;}
@@ -215,15 +223,34 @@ footer .limits{padding-left:18px;}
 <body class="splash-active">
 
 <div id="splash">
-  <svg id="splashTurbo" viewBox="0 0 200 200" aria-hidden="true">
-    <circle cx="100" cy="100" r="92" fill="none" stroke="#2C3238" stroke-width="1.5"></circle>
-    <circle cx="100" cy="100" r="70" fill="none" stroke="#22262b" stroke-width="1"></circle>
-    <g id="turboBlades"></g>
-    <circle cx="100" cy="100" r="15" fill="#1B1F23" stroke="#C6913F" stroke-width="2"></circle>
-  </svg>
-  <div class="splash-rpm" id="splashRpm">0 RPM</div>
-  <div class="splash-label">SPOOLING UP — INITIALIZING PRESCRIBED LOADING MODEL</div>
-  <div class="splash-bar"><div class="splash-bar-fill" id="splashBarFill"></div></div>
+  <div id="splashStage">
+    <div id="splashGlow"></div>
+    <svg id="splashTurbo" viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="bladeGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#7A5A2C"></stop>
+          <stop offset="55%" stop-color="#C6913F"></stop>
+          <stop offset="100%" stop-color="#EFCE96"></stop>
+        </linearGradient>
+        <radialGradient id="hubGrad" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="#2a2f34"></stop>
+          <stop offset="100%" stop-color="#15181b"></stop>
+        </radialGradient>
+      </defs>
+      <circle cx="100" cy="100" r="95" fill="none" stroke="#22262b" stroke-width="1"></circle>
+      <g id="tickRing"></g>
+      <circle cx="100" cy="100" r="70" fill="none" stroke="#22262b" stroke-width="1"></circle>
+      <g id="turboBladesGhost2" opacity="0.07"></g>
+      <g id="turboBladesGhost1" opacity="0.16"></g>
+      <g id="turboBlades"></g>
+      <circle cx="100" cy="100" r="17" fill="url(#hubGrad)" stroke="#C6913F" stroke-width="1.6"></circle>
+      <circle cx="100" cy="100" r="4" fill="#C6913F"></circle>
+    </svg>
+  </div>
+  <div class="splash-readout">
+    <div class="splash-rpm" id="splashRpm">0 RPM</div>
+    <div class="splash-label" id="splashLabel">CALIBRATING HUB CONTOUR</div>
+  </div>
 </div>
 
 <div class="topbar-mobile" id="mobileNav"></div>
@@ -1158,33 +1185,79 @@ window.addEventListener('scroll', updateActiveNav, {passive:true});
 /* ================= OPENING SPLASH ================= */
 (function initSplash(){
   const NS='http://www.w3.org/2000/svg';
-  const g = document.getElementById('turboBlades');
+  const BLADE_D = 'M100,100 C95,79 87,58 72,40 C90,36 108,42 119,56 C126,65 125,77 115,86 C108,92 102,97 100,100 Z';
   const nBlades = 11;
-  for(let i=0;i<nBlades;i++){
-    const ang = i*360/nBlades;
-    const blade = document.createElementNS(NS,'path');
-    blade.setAttribute('d','M100,100 C97,76 92,54 82,34 C98,40 111,56 114,78 C116,90 110,98 100,100 Z');
-    blade.setAttribute('transform','rotate('+ang+' 100 100)');
-    g.appendChild(blade);
+  function buildBlades(id){
+    const g = document.getElementById(id);
+    for(let i=0;i<nBlades;i++){
+      const ang = i*360/nBlades;
+      const blade = document.createElementNS(NS,'path');
+      blade.setAttribute('d', BLADE_D);
+      blade.setAttribute('transform','rotate('+ang+' 100 100)');
+      g.appendChild(blade);
+    }
+    return g;
   }
+  const gMain = buildBlades('turboBlades');
+  const gGhost1 = buildBlades('turboBladesGhost1');
+  const gGhost2 = buildBlades('turboBladesGhost2');
+
+  // tachometer tick ring
+  const tickRing = document.getElementById('tickRing');
+  const N_TICKS = 48;
+  const ticks = [];
+  for(let i=0;i<N_TICKS;i++){
+    const ang = (i/N_TICKS)*360 - 90;
+    const major = i%6===0;
+    const rOuter = 94, rInner = major ? 80 : 86;
+    const rad = ang*Math.PI/180;
+    const line = document.createElementNS(NS,'line');
+    line.setAttribute('x1', (100+rInner*Math.cos(rad)).toFixed(2));
+    line.setAttribute('y1', (100+rInner*Math.sin(rad)).toFixed(2));
+    line.setAttribute('x2', (100+rOuter*Math.cos(rad)).toFixed(2));
+    line.setAttribute('y2', (100+rOuter*Math.sin(rad)).toFixed(2));
+    line.setAttribute('stroke', '#262b30');
+    line.setAttribute('stroke-width', major ? '2' : '1');
+    tickRing.appendChild(line);
+    ticks.push(line);
+  }
+
   const rpmEl = document.getElementById('splashRpm');
-  const barEl = document.getElementById('splashBarFill');
+  const labelEl = document.getElementById('splashLabel');
   const splashEl = document.getElementById('splash');
-  const DURATION=5000, TARGET_RPM=27900, TOTAL_DEG=2600;
+  const PHRASES = ['CALIBRATING HUB CONTOUR','SPLITTING HUB / SHROUD STREAMLINES','INTEGRATING BLADE ANGLE θ(s)','CONNECTING STRAIGHT-LINE ELEMENTS'];
+  const DURATION=3000, TARGET_RPM=27900, TOTAL_DEG=2050, GHOST1_LAG=14, GHOST2_LAG=28;
   const t0 = performance.now();
+  let litCount=-1, phraseIdx=-1;
   function frame(now){
     const t = Math.min((now-t0)/DURATION, 1);
-    const eased = Math.pow(t, 2.3); // slow start, fast finish — spool-up feel
-    g.setAttribute('transform','rotate('+(eased*TOTAL_DEG)+' 100 100)');
+    const eased = Math.pow(t, 2.15); // slow start, fast finish — spool-up feel
+    const deg = eased*TOTAL_DEG;
+    gMain.setAttribute('transform','rotate('+deg+' 100 100)');
+    gGhost1.setAttribute('transform','rotate('+(deg-GHOST1_LAG)+' 100 100)');
+    gGhost2.setAttribute('transform','rotate('+(deg-GHOST2_LAG)+' 100 100)');
     rpmEl.textContent = Math.round(eased*TARGET_RPM).toLocaleString()+' RPM';
-    barEl.style.width = (t*100)+'%';
+
+    const lit = Math.floor(t*N_TICKS);
+    if(lit!==litCount){
+      for(let i=0;i<N_TICKS;i++){
+        const on = i<lit;
+        ticks[i].setAttribute('stroke', on ? '#C6913F' : '#262b30');
+        ticks[i].setAttribute('stroke-width', on ? (i%6===0?'2.4':'1.4') : (i%6===0?'2':'1'));
+      }
+      litCount=lit;
+    }
+    const pIdx = Math.min(Math.floor(t*PHRASES.length), PHRASES.length-1);
+    if(pIdx!==phraseIdx){ labelEl.textContent = PHRASES[pIdx]; phraseIdx=pIdx; }
+
     if(t<1) requestAnimationFrame(frame);
+    else splashEl.classList.add('flash');
   }
   requestAnimationFrame(frame);
   setTimeout(()=>{
     splashEl.classList.add('hide');
     document.body.classList.remove('splash-active');
-  }, DURATION);
+  }, DURATION+180);
 })();
 
 /* ================= INIT ================= */
